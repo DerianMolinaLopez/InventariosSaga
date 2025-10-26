@@ -1,10 +1,10 @@
 package com.inventarios.inventarios.models;
 import java.math.BigDecimal;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Lob;
@@ -14,18 +14,13 @@ import lombok.Data;
 
 @Data
 @Entity
+@JsonIgnoreProperties(ignoreUnknown = true)
 @Table(name = "items", indexes = {
     @Index(name = "idx_item_sku", columnList = "sku", unique = true)
 })
 public class ItemEntity {
     
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-   
-    @Column(nullable=false)
-    private String correlationId;//el id de la operacion
-
     @Column(length = 32, nullable = false)
     private String lineId;
 
@@ -54,5 +49,21 @@ public class ItemEntity {
     private String attributesJson;  //colores,garantias, consideracioines etc
 
     private Boolean requiresSerial;
+  
+    @Override
+    public String toString() {
+        return "ItemEntity{" +
+            "lineId='" + lineId + '\'' +
+            ", sku='" + sku + '\'' +
+            ", name='" + name + '\'' +
+            ", qty=" + String.valueOf(qty) +
+            ", unitPrice=" + (unitPrice == null ? "null" : unitPrice.toPlainString()) +
+            ", taxRate=" + (taxRate == null ? "null" : taxRate.toPlainString()) +
+            ", warehouse='" + warehouse + '\'' +
+            ", vendor='" + vendor + '\'' +
+            ", requiresSerial=" + String.valueOf(requiresSerial) +
+            ", attributesJson=" + (attributesJson == null ? "null" : "'" + attributesJson + "'") +
+            '}';
+    }
    
 }

@@ -3,7 +3,6 @@ package com.inventarios.inventarios.services;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -16,7 +15,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.inventarios.inventarios.models.ItemEntity;
 import com.inventarios.inventarios.repositories.ItemEntityRepository;
-import com.mysql.cj.xdevapi.JsonArray;
 
 import jakarta.transaction.Transactional;
 
@@ -24,62 +22,87 @@ import jakarta.transaction.Transactional;
 public class WorkInventoryService {
     Logger logger = LoggerFactory.getLogger(WorkInventoryService.class);
     ObjectMapper mapper = new ObjectMapper();
+    
     @Autowired
     private ItemEntityRepository itemEntityRepository;
+    @Autowired
+    private HistorticDiscountServcie historticDiscountServcie;
 
     public void workInventoryLogic(JsonNode node){
+        logger.info("Iniciando la validacion para el grabado del inventario y el historico");
         try {
 
             List<ItemEntity> items = this.convertJsonNodeToItemModel(node);
-            if(this.existencias(items)){
+            String correlationId = node.get("correlationId").asText();
+        
+            if(this.existenciasDebug(items)){
                 this.discountInventory(items);
+                this.historticDiscountServcie.createHistory(items,correlationId);
 
+            }else{
+                logger.info("No hay existencias para satisfacer la compra");
             }
             
         } catch (IOException e) {
             logger.info("Ocurrio un error durante la validacion del inventario: {}",e.getMessage());
-        
+            e.printStackTrace();
         }
         
         
     }
-    private List<ItemEntity> convertJsonNodeToItemModel(JsonNode node) throws IOException{
-        JsonNode itemsNode = node.get("items");
-        List<ItemEntity> items = mapper.readerForListOf(ItemEntity.class).readValue(itemsNode);
-        return items;
-    }
-    private boolean existencias(List<ItemEntity> items) {
-        return items.stream().allMatch(item -> {
-            return itemEntityRepository.findById(item.getId())
-                    .map(inventario -> inventario.getQty() >= item.getQty())
-                    .orElse(false);
+   private List<ItemEntity> convertJsonNodeToItemModel(JsonNode node) throws IOException {
+    mapper.configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    JsonNode itemsNode = node.get("items");
+    logger.info("Node mapeado");
+
+    List<ItemEntity>  nodos = mapper.readerForListOf(ItemEntity.class).readValue(itemsNode);
+
+    nodos.forEach(c-> System.out.println(c));
+    return nodos;
+}
+
+ 
+    private boolean existenciasDebug(List<ItemEntity> items) {
+    return items.stream()
+        .peek(item -> logger.info("Verificando item: " + item.getLineId()))
+        .allMatch(item -> {
+            return itemEntityRepository.findById(item.getLineId())
+                .map(stock -> {
+                    logger.info("Comparando → Stock: " + stock.getQty() + ", Solicitado: " + item.getQty());
+                    return stock.getQty() >= item.getQty();
+                })
+                .orElseGet(() -> {
+                    logger.info("No se encontró en inventario → " + item.getLineId());
+                    return false;
+                });
         });
-    }
+}
+
+
     @Transactional
     private void discountInventory(List<ItemEntity> items) {
 
-        List<Long> ids = items.stream()
-                .map(ItemEntity::getId)
-                .toList();
 
-        List<ItemEntity> inventario = itemEntityRepository.findAllById(ids);
+        List<String> lineIds = items.stream()
+            .map(ItemEntity::getLineId)
+            .toList();
 
+        List<ItemEntity> inventario = itemEntityRepository.findAllById(lineIds);
 
-        Map<Long, ItemEntity> inventarioMap = inventario.stream()
-                .collect(Collectors.toMap(ItemEntity::getId, Function.identity()));
-
+        Map<String, ItemEntity> inventarioMap = inventario.stream()
+            .collect(Collectors.toMap(ItemEntity::getLineId, Function.identity()));
 
         items.forEach(item -> {
-            ItemEntity stock = inventarioMap.get(item.getId());
+            ItemEntity stock = inventarioMap.get(item.getLineId());
             if (stock != null) {
                 int nuevaCantidad = stock.getQty() - item.getQty();
-                stock.setQty(Math.max(nuevaCantidad, 0)); 
+                stock.setQty(Math.max(nuevaCantidad, 0));
             }
         });
 
-
         itemEntityRepository.saveAll(inventarioMap.values());
     }
+
 
     
     
