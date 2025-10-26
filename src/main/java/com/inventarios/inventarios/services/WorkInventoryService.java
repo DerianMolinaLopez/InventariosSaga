@@ -13,8 +13,12 @@ import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.inventarios.inventarios.controller.ControllerKafkaPublisher;
+import com.inventarios.inventarios.enums.TypeMessage;
+import com.inventarios.inventarios.exceptions.WorkInventoryLogicException;
 import com.inventarios.inventarios.models.ItemEntity;
 import com.inventarios.inventarios.repositories.ItemEntityRepository;
+import com.inventarios.inventarios.utils.CreateStringStatusResponse;
 
 import jakarta.transaction.Transactional;
 
@@ -28,9 +32,16 @@ public class WorkInventoryService {
     @Autowired
     private HistorticDiscountServcie historticDiscountServcie;
 
-    public void workInventoryLogic(JsonNode node){
+        @Autowired
+    private ControllerKafkaPublisher controllerKafkaPublisher;
+    @Autowired
+    private CreateStringStatusResponse createStringStatusResponse;
+
+    private final String  topic = "confirmaciones";
+
+    public void workInventoryLogic(JsonNode node) throws WorkInventoryLogicException,IOException{
         logger.info("Iniciando la validacion para el grabado del inventario y el historico");
-        try {
+
 
             List<ItemEntity> items = this.convertJsonNodeToItemModel(node);
             String correlationId = node.get("correlationId").asText();
@@ -38,16 +49,18 @@ public class WorkInventoryService {
             if(this.existenciasDebug(items)){
                 this.discountInventory(items);
                 this.historticDiscountServcie.createHistory(items,correlationId);
+                String numeroOperacion = node.get("correlationId").asText();
+                String idStep = node.get("idStep").asText();
+                  logger.info("Procedimeinto completado para la operacion:{} procediendo a la confirmacion de la transaccion",numeroOperacion);
+                this.sendMessageConfirm(numeroOperacion,idStep);
+               
+            
+                
 
             }else{
                 logger.info("No hay existencias para satisfacer la compra");
+                throw new WorkInventoryLogicException("No hay existencias para satisfacer la compra");
             }
-            
-        } catch (IOException e) {
-            logger.info("Ocurrio un error durante la validacion del inventario: {}",e.getMessage());
-            e.printStackTrace();
-        }
-        
         
     }
    private List<ItemEntity> convertJsonNodeToItemModel(JsonNode node) throws IOException {
@@ -101,6 +114,12 @@ public class WorkInventoryService {
         });
 
         itemEntityRepository.saveAll(inventarioMap.values());
+    }
+
+    private void sendMessageConfirm(String numeroOperacion,String idPaso){
+            String exitMessage = this.createStringStatusResponse.buildResponse(TypeMessage.COMPLETED, numeroOperacion, idPaso, "");
+            this.controllerKafkaPublisher.publish(exitMessage, topic);
+
     }
 
 
