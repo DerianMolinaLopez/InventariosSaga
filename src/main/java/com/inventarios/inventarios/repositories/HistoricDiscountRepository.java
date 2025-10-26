@@ -5,6 +5,6 @@ import org.springframework.stereotype.Repository;
 
 import com.inventarios.inventarios.models.HistoricDiscount;
 @Repository
-public interface HistoricDiscountRepository extends JpaRepository<HistoricDiscount, String> {
+public interface HistoricDiscountRepository extends JpaRepository<HistoricDiscount, Long> {
     
 }

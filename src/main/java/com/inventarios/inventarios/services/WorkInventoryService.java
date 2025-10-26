@@ -39,7 +39,7 @@ public class WorkInventoryService {
 
     private final String  topic = "confirmaciones";
 
-    public void workInventoryLogic(JsonNode node) throws WorkInventoryLogicException,IOException{
+    public void workInventoryLogic(JsonNode node, String idStep) throws WorkInventoryLogicException,IOException{
         logger.info("Iniciando la validacion para el grabado del inventario y el historico");
 
 
@@ -50,7 +50,7 @@ public class WorkInventoryService {
                 this.discountInventory(items);
                 this.historticDiscountServcie.createHistory(items,correlationId);
                 String numeroOperacion = node.get("correlationId").asText();
-                String idStep = node.get("idStep").asText();
+             
                   logger.info("Procedimeinto completado para la operacion:{} procediendo a la confirmacion de la transaccion",numeroOperacion);
                 this.sendMessageConfirm(numeroOperacion,idStep);
                

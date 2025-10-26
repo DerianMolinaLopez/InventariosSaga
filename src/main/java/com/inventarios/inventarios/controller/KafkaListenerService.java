@@ -5,6 +5,7 @@ import java.io.IOException;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Controller;
 
@@ -37,33 +38,37 @@ public class KafkaListenerService {
      * 
      */
     @KafkaListener(topics = StringsKafkaConstants.TOPIC_INVENTORY, groupId = StringsKafkaConstants.TOPIC_INVENTORY)
-    public void listen(@Payload String message) {
+    public void listen(@Payload String message,
+                       @Header("objetivo")String objetivo,
+                       @Header("correlationId") String numeroOperacion,
+                       @Header("stepId") String idStep
+                       ) {
               // queda pendiente agregar un header, ese header debe de contener el status si
         // es error o una inservion
         logger.info("Mensaje recibido de kafka: {}", message);
         // TODO hay demaciados string magicos que aparecen de la nada
-        String numeroOperacion = "desconocido";
-        String idStep = "desconocido";
-
+    
+     if(objetivo.equals("grabado")){
         try {
-            JsonNode node = mapper.readTree(message);
-             numeroOperacion = node.get("correlationId").asText();
-             idStep = node.get("idStep").asText();
-            workInventoryService.workInventoryLogic(node);
-             //todo hay que buscar la manera de reducirt este try catch
-        } catch (IOException e) {
-            logger.error("Ocurrio un error durante la operacion: {}", e.getMessage(), e);
-            String messageExtracted = e.getMessage();
-            String messageError = this.createStringStatusResponse.buildResponse(TypeMessage.FAILED, numeroOperacion, idStep, messageExtracted);
-            this.controllerKafkaPublisher.publish(messageError, topicError);
-            
-        }catch (WorkInventoryLogicException e){
-            logger.error("Ocurrio un error durante la operacion: {}", e.getMessage(), e);
-            String messageExtracted = e.getMessage();
-            String messageError = this.createStringStatusResponse.buildResponse(TypeMessage.FAILED, numeroOperacion, idStep, messageExtracted);
-            this.controllerKafkaPublisher.publish(messageError, topicError);
+                    JsonNode node = mapper.readTree(message);
+                
+                    workInventoryService.workInventoryLogic(node,idStep);
+                    //todo hay que buscar la manera de reducirt este try catch
+                } catch (IOException e) {
+                    logger.error("Ocurrio un error durante la operacion: {}", e.getMessage(), e);
+                    String messageExtracted = e.getMessage();
+                    String messageError = this.createStringStatusResponse.buildResponse(TypeMessage.FAILED, numeroOperacion, idStep, messageExtracted);
+                    this.controllerKafkaPublisher.publish(messageError, topicError);
+                    
+                }catch (WorkInventoryLogicException e){
+                    logger.error("Ocurrio un error durante la operacion: {}", e.getMessage(), e);
+                    String messageExtracted = e.getMessage();
+                    String messageError = this.createStringStatusResponse.buildResponse(TypeMessage.FAILED, numeroOperacion, idStep, messageExtracted);
+                    this.controllerKafkaPublisher.publish(messageError, topicError);
 
-        }
+                }
+     }
+       
 
     }
 

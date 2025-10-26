@@ -1,0 +1,10 @@
+target
+build
+.gradle
+.mvn
+**/*.iml
+**/.DS_Store
+**/.idea
+.git
+.gitignore
+.env
