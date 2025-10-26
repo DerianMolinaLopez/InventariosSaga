@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.inventarios.inventarios.constants.StringsKafkaConstants;
 import com.inventarios.inventarios.enums.TypeMessage;
+import com.inventarios.inventarios.exceptions.WorkInventoryLogicException;
 import com.inventarios.inventarios.services.WorkInventoryService;
 import com.inventarios.inventarios.utils.CreateStringStatusResponse;
 
@@ -49,20 +50,19 @@ public class KafkaListenerService {
              numeroOperacion = node.get("correlationId").asText();
              idStep = node.get("idStep").asText();
             workInventoryService.workInventoryLogic(node);
-            throw new Exception("forzando errror");
-             
+             //todo hay que buscar la manera de reducirt este try catch
         } catch (IOException e) {
             logger.error("Ocurrio un error durante la operacion: {}", e.getMessage(), e);
             String messageExtracted = e.getMessage();
             String messageError = this.createStringStatusResponse.buildResponse(TypeMessage.FAILED, numeroOperacion, idStep, messageExtracted);
             this.controllerKafkaPublisher.publish(messageError, topicError);
             
-        } catch (Exception e) {
+        }catch (WorkInventoryLogicException e){
             logger.error("Ocurrio un error durante la operacion: {}", e.getMessage(), e);
             String messageExtracted = e.getMessage();
             String messageError = this.createStringStatusResponse.buildResponse(TypeMessage.FAILED, numeroOperacion, idStep, messageExtracted);
             this.controllerKafkaPublisher.publish(messageError, topicError);
-            
+
         }
 
     }
