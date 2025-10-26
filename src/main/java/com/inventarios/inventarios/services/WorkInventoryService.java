@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.inventarios.inventarios.exceptions.WorkInventoryLogicException;
 import com.inventarios.inventarios.models.ItemEntity;
 import com.inventarios.inventarios.repositories.ItemEntityRepository;
 
@@ -28,9 +29,9 @@ public class WorkInventoryService {
     @Autowired
     private HistorticDiscountServcie historticDiscountServcie;
 
-    public void workInventoryLogic(JsonNode node){
+    public void workInventoryLogic(JsonNode node) throws WorkInventoryLogicException,IOException{
         logger.info("Iniciando la validacion para el grabado del inventario y el historico");
-        try {
+
 
             List<ItemEntity> items = this.convertJsonNodeToItemModel(node);
             String correlationId = node.get("correlationId").asText();
@@ -42,12 +43,6 @@ public class WorkInventoryService {
             }else{
                 logger.info("No hay existencias para satisfacer la compra");
             }
-            
-        } catch (IOException e) {
-            logger.info("Ocurrio un error durante la validacion del inventario: {}",e.getMessage());
-            e.printStackTrace();
-        }
-        
         
     }
    private List<ItemEntity> convertJsonNodeToItemModel(JsonNode node) throws IOException {

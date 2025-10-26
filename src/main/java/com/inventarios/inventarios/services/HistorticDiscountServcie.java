@@ -30,9 +30,6 @@ public void createHistory(List<ItemEntity> items, String correlationId) {
         .map(item -> buildHistoricDiscount(item, correlationId, now))
         .toList();
     logger.info("lARGO DE LA LISTA: {}",historicos.size());
-
-
-
     historicDiscountRepository.saveAll(historicos);
 }
 
