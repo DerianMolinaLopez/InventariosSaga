@@ -49,4 +49,7 @@ public class HistoricDiscount {
   @Column(name = "create_at", nullable = false)
   private LocalDateTime createAt;
 
+  @Column(name ="completed", nullable=true)
+  private String completed;
+
 }

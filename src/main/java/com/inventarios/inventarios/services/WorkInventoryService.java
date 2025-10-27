@@ -3,6 +3,7 @@ package com.inventarios.inventarios.services;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -15,7 +16,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.inventarios.inventarios.controller.ControllerKafkaPublisher;
 import com.inventarios.inventarios.enums.TypeMessage;
+import com.inventarios.inventarios.exceptions.CompensateException;
 import com.inventarios.inventarios.exceptions.WorkInventoryLogicException;
+import com.inventarios.inventarios.models.HistoricDiscount;
 import com.inventarios.inventarios.models.ItemEntity;
 import com.inventarios.inventarios.repositories.ItemEntityRepository;
 import com.inventarios.inventarios.utils.CreateStringStatusResponse;
@@ -52,11 +55,8 @@ public class WorkInventoryService {
                 String numeroOperacion = node.get("correlationId").asText();
              
                   logger.info("Procedimeinto completado para la operacion:{} procediendo a la confirmacion de la transaccion",numeroOperacion);
-                this.sendMessageConfirm(numeroOperacion,idStep);
+                 this.sendMessageConfirm(numeroOperacion,idStep);
                
-            
-                
-
             }else{
                 logger.info("No hay existencias para satisfacer la compra");
                 throw new WorkInventoryLogicException("No hay existencias para satisfacer la compra");
@@ -121,12 +121,25 @@ public class WorkInventoryService {
             this.controllerKafkaPublisher.publish(exitMessage, topic);
 
     }
-
-
     
+    public void compesnateOperation(String numberOfOperation){
+         this.logger.info("Iniciando con la compesnacion del inventario");
+
+        List<HistoricDiscount> discounts = this.historticDiscountServcie.findByCorrelationId(numberOfOperation);
+
+        for(HistoricDiscount historicDisucount:discounts){
+          Optional<ItemEntity> itemDiscounted = this.itemEntityRepository.findById(historicDisucount.getLineId());
     
-    //TODO implementacion de la compensacion
-    public void deleteOperationWithCorrelationId(String errorMessage){
-        
+          ItemEntity item = itemDiscounted.orElse(null);
+          if(item == null) throw new CompensateException("No existe el articulo al que se le quiere compensar la existencia");
+
+          item.setQty(historicDisucount.getQty());
+
+          this.itemEntityRepository.save(item);
+
+        }
+        this.logger.info("compensacion completada por el numero de operacion: {}",numberOfOperation);
+
     }
+    
 }

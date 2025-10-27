@@ -6,5 +6,7 @@ import com.inventarios.inventarios.models.ItemEntity;
 @Repository
 public interface ItemEntityRepository extends JpaRepository<ItemEntity,String> {
      boolean existsBySku(String sku);
+
+   
     
 }

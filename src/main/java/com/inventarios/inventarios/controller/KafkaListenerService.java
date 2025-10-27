@@ -28,52 +28,48 @@ public class KafkaListenerService {
     private final ObjectMapper mapper = new ObjectMapper();
     private final String topicError = "errores";
     private final String topicConfirmation = "confirmaciones";
-    
+
     private final org.slf4j.Logger logger = LoggerFactory.getLogger(KafkaListener.class);
 
-    /**
-     * 
-     * La entrada de datos puede recibir un mensaje para mandar el objeto que sea la
-     * logica del servicio o tambien una cadena de texto que corresponda a un error
-     * 
-     */
-    @KafkaListener(topics = StringsKafkaConstants.TOPIC_INVENTORY, groupId = StringsKafkaConstants.TOPIC_INVENTORY)
+   @KafkaListener(topics = StringsKafkaConstants.TOPIC_INVENTORY, groupId = StringsKafkaConstants.TOPIC_INVENTORY)
     public void listen(@Payload String message,
-                       @Header("objetivo")String objetivo,
-                       @Header("correlationId") String numeroOperacion,
-                       @Header("stepId") String idStep
-                       ) {
-              // queda pendiente agregar un header, ese header debe de contener el status si
-        // es error o una inservion
+            @Header(value = "objetivo", required = false) String objetivo,
+            @Header(value = "correlationId", required = false) String numeroOperacion,
+            @Header(value = "stepId", required = false) String idStep) {
+
         logger.info("Mensaje recibido de kafka: {}", message);
-        // TODO hay demaciados string magicos que aparecen de la nada
-    
-     if(objetivo.equals("grabado")){
-        try {
-                    JsonNode node = mapper.readTree(message);
-                
-                    workInventoryService.workInventoryLogic(node,idStep);
-                    //todo hay que buscar la manera de reducirt este try catch
-                } catch (IOException e) {
-                    logger.error("Ocurrio un error durante la operacion: {}", e.getMessage(), e);
-                    String messageExtracted = e.getMessage();
-                    String messageError = this.createStringStatusResponse.buildResponse(TypeMessage.FAILED, numeroOperacion, idStep, messageExtracted);
-                    this.controllerKafkaPublisher.publish(messageError, topicError);
-                    
-                }catch (WorkInventoryLogicException e){
-                    logger.error("Ocurrio un error durante la operacion: {}", e.getMessage(), e);
-                    String messageExtracted = e.getMessage();
-                    String messageError = this.createStringStatusResponse.buildResponse(TypeMessage.FAILED, numeroOperacion, idStep, messageExtracted);
-                    this.controllerKafkaPublisher.publish(messageError, topicError);
+        
+        if (!"grabado".equals(objetivo)) {
+            logger.info("Logica de compesnacion");
+            String numberOfOperation = message.split("_")[3];
+            this.workInventoryService.compesnateOperation(numberOfOperation);
+            return;
+        }
 
-                }
-     }
-       
+      
 
+        processInventoryMessage(message, numeroOperacion, idStep);
     }
 
+    private void processInventoryMessage(String message, String numeroOperacion, String idStep) {
+        try {
+            JsonNode node = mapper.readTree(message);
+             workInventoryService.workInventoryLogic(node, idStep);
+         
+        } catch (IOException | WorkInventoryLogicException e) {
+            handleProcessingError(e, numeroOperacion, idStep);
+        }
+    }
 
-    
+    private void handleProcessingError(Exception e, String numeroOperacion, String idStep) {
+        logger.error("Ocurrio un error durante la operacion: {}", e.getMessage(), e);
+        String messageError = this.createStringStatusResponse.buildResponse(
+            TypeMessage.FAILED, 
+            numeroOperacion,
+            idStep, 
+            e.getMessage()
+        );
+        this.controllerKafkaPublisher.publish(messageError, topicError);
+    }
 
 }
-

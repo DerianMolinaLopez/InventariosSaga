@@ -45,4 +45,8 @@ private HistoricDiscount buildHistoricDiscount(ItemEntity itemEntity, String cor
     return historic;
 }
 
+ public List<HistoricDiscount> findByCorrelationId(String correlationId){
+     return this.historicDiscountRepository.findByCorrelationId(correlationId);
+ }
+
 }
